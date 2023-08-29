@@ -3,10 +3,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-void handle_error(const char *msg) {
-    perror(msg);
-    exit(EXIT_FAILURE);
-}
 
 int main() {
     int fd;
@@ -15,7 +11,8 @@ int main() {
     // Open a file for reading and writing
     fd = open("ques16_file.txt", O_RDWR | O_CREAT, 0666);
     if (fd == -1) {
-        handle_error("open");
+        perror("open");
+        exit(EXIT_FAILURE);
     }
 
     // Perform write locking
@@ -27,7 +24,8 @@ int main() {
 
     // Attempt to acquire the write lock
     if (fcntl(fd, F_SETLKW, &lock) == -1) {
-        handle_error("fcntl write lock");
+        perror("fcntl write lock");
+        exit(EXIT_FAILURE);
     }
 
     printf("Write lock acquired. Press Enter to release it.\n");
@@ -36,7 +34,8 @@ int main() {
     // Release the write lock
     lock.l_type = F_UNLCK;
     if (fcntl(fd, F_SETLK, &lock) == -1) {
-        handle_error("fcntl unlock");
+        perror("fcntl unlock");
+        exit(EXIT_FAILURE);
     }
     printf("Write lock released.\n");
 
@@ -45,7 +44,8 @@ int main() {
 
     // Attempt to acquire the read lock
     if (fcntl(fd, F_SETLKW, &lock) == -1) {
-        handle_error("fcntl read lock");
+        perror("fcntl read lock");
+        exit(EXIT_FAILURE);
     }
 
     printf("Read lock acquired. Press Enter to release it.\n");
@@ -54,11 +54,11 @@ int main() {
     // Release the read lock
     lock.l_type = F_UNLCK;
     if (fcntl(fd, F_SETLK, &lock) == -1) {
-        handle_error("fcntl unlock");
+        perror("fcntl unlock");
+        exit(EXIT_FAILURE);
     }
     printf("Read lock released.\n");
 
     close(fd);
     return 0;
 }
-
