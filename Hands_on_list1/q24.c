@@ -12,7 +12,9 @@ Date: 07 September 2023
 #include<unistd.h>
 #include<stdlib.h>
 
-int main(void) {
+int main(int argc, char * argv[]) {
+	printf("%s\n", argv[1]);
+	
 	int process_id = fork();
 	
 	if(process_id == 0) {
