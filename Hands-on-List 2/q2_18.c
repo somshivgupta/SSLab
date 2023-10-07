@@ -1,3 +1,11 @@
+*
+============================================================================
+Name : 18.c
+Author : Som Shiv Gupta
+Description : Write a program to find out total number of directories on the pwd. execute ls -l | grep ^d | wc ? Use only dup2
+Date: 3rd Oct, 2023.
+============================================================================
+*/
 #include<stdio.h>
 #include<unistd.h>
 #include<sys/types.h>
