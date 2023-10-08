@@ -11,6 +11,7 @@ Date: 1st October, 2023.
 #include<unistd.h>
 #include<sys/types.h>
 #include<stdio.h>
+#include<fcntl.h>
 
 void main() {
 	int p[2];
