@@ -19,16 +19,6 @@ int main(void) {
 	fd_set fd;
 	struct timeval tv;
 	
-	const char *path = "fifo";
-	
-	int temp = mkfifo(path, 0666);
-	
-	int fs = open(path, O_RDONLY);
-	if(fs == -1) {
-		perror("file not open");
-		return 0;
-	}
-	
 	printf("Waiting for data in FIFO (up to 10 seconds)\n");
 	
 	FD_ZERO(&fd);
