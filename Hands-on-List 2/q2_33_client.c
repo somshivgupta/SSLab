@@ -1,3 +1,12 @@
+/*
+============================================================================
+Name : 33_client.c
+Author : Som Shiv Gupta
+Description : Write a program to communicate between two machines using socket.
+Date: 10th Oct, 2023.
+============================================================================
+*/
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<unistd.h>
