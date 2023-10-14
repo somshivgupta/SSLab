@@ -9,7 +9,6 @@
 #include "./Record.h"
 
 int add_student(struct stud add_stud) {
-
 	const char* filename = "Student.txt";
 	printf("File Open\n");	
 	int fd = open(filename, O_WRONLY|O_APPEND,0666);
@@ -24,7 +23,7 @@ int add_student(struct stud add_stud) {
 
 int add_faculty(struct facu add_fac) {
 	const char* filename = "Faculty.txt";
-	int fd = open(filename, O_WRONLY|O_APPEND,0666);
+	int fd = open(filename, O_CREAT|O_WRONLY|O_APPEND,0666);
 	if(fd == -1) {
 		perror("Error while Adding Faculty");
 		return 0;
