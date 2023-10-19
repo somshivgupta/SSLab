@@ -1,103 +1,129 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
-#include<string.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
+#include <stdio.h>	// Import for `printf` & `perror` functions
+#include <stdlib.h>	// Import for `atoi` function
+#include <string.h>	// Import for string functions
+#include <unistd.h>	// Import for `fork`, `fcntl`, `read`, `write`, `lseek, `_exit` functions
+#include <fcntl.h>	// Import for `fcntl` functions
+#include <sys/types.h>	// Import for `socket`, `bind`, `listen`, `accept`, `fork`, `lseek` functions
+#include <errno.h>	// Import for `errno` variable
+#include <sys/socket.h>	// Import for `socket`, `bind`, `listen`, `accept` functions
+#include <netinet/in.h>	// Import for `sockaddr_in` stucture
+#include <stdbool.h>
+void connectionHandler(int sockfd);	// Handles the read & write operations to the server
 
-void connection(int cli_sock) {
-	char readb[1000], writeb[1000];
-	char extrab[1000];
-	int read_Bytes, write_Bytes;
+void error(const char *msg)
+{
+	perror(msg);
+	exit(1);
+}
+
+int main()
+{
+	int sockfd, portno, n;
+	struct sockaddr_in serverAddress;
+	struct hostent *server; // store info about the given host
 	
+	char buffer[1024];
+
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if(sockfd < 0)
+	{
+		error("Error opening socket");
+	}
+	int reuse = 1;
+	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+	    error("setsockopt(SO_REUSEADDR) failed");
+	}
 	
-	do {
-		bzero(readb, sizeof(readb));
-		bzero(extrab, sizeof(extrab));
-			
-		read_Bytes = read(cli_sock, readb, sizeof(readb));
-		if(read_Bytes == -1) {
-			perror("Error while reading the data");
-			return;
-		}
+	portno = 8086;
+	//server = gethostbyname(argv[1]);
+	if(server == NULL)
+	{
+		printf("Error, No such host\n");
+		exit(0);
+	}
+	
+	serverAddress.sin_family = AF_INET;			// IPV4
+	serverAddress.sin_port = htons(portno);			// Server will listen to port 8081
+	serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);	// Binds the socket to all interface
+	
+	if(connect(sockfd,(struct sockaddr *) &serverAddress,sizeof(serverAddress)) < 0 )
+		error("Error while connectiong to server");
+	
+	connectionHandler(sockfd);
+	close(sockfd);
+	return 0;
+}
+
+void connectionHandler(int sockfd)
+{
+	char readBuffer[1024], writeBuffer[1024];		// Buffer used for reading from/ writing to the server
+	int readBytes, writeBytes;
+	
+	char tempBuffer[1024];
+	
+	do
+	{
+		bzero(readBuffer, sizeof(readBuffer));		// Empty the readBuffer
+		bzero(tempBuffer, sizeof(tempBuffer));
 		
-	 	else if (read_Bytes == 0)
-            		printf("No error received from server! Closing the connection to the server now!\n");
-        	else if (strchr(readb, '^') != NULL)
-        	{
-            		// Skip read from client
-            		strncpy(extrab, readb, strlen(readb) - 1);
-            		printf("%s\n", extrab);
-		        write_Bytes = write(cli_sock, "^", strlen("^"));
-		        if (write_Bytes == -1)
-		       {
-		        	perror("Error while writing to client socket!");
-		        	break;
-		       }
-		}
-		else if (strchr(readb, '$') != NULL)
+		readBytes = read(sockfd, readBuffer, sizeof(readBuffer));
+		if(readBytes == -1)
 		{
-		    // Server sent an error message and is now closing it's end of the connection
-		    strncpy(extrab, readb, strlen(readb) - 2);
-		    printf("%s\n", extrab);
-		    printf("Closing the connection to the server now!\n");
-		    break;
+			close(sockfd);
+			error("Error while reading from server");
+		}
+		else if(readBytes == 0)
+			printf("\nNo data received from server");
+		else if(strchr(readBuffer, '^') != NULL)
+		{
+			// Skip read from client
+			strncpy(tempBuffer, readBuffer, (size_t)(strlen(readBuffer) -1));
+			//strcpy(tempBuffer, readBuffer);
+			printf("\n%s",tempBuffer);
+			
+			writeBytes = write(sockfd, "^", strlen("^"));
+			if(writeBytes == -1)
+			{
+				close(sockfd);
+				error("Error while writing to clint socket");
+			}
+		}
+		else if(strchr(readBuffer, '$') != NULL)
+		{
+			// Server sent an error message and is now closing its end of connection
+			strncpy(tempBuffer, readBuffer, (size_t)(strlen(readBuffer) -2));
+			//strcpy(tempBuffer, readBuffer);
+			printf("\n%s",tempBuffer);
+			printf("\nClosing the connection to the server!!\n");
+			break;
 		}
 		else
 		{
-		    bzero(writeb, sizeof(writeb)); // Empty the write buffer
-
-		    if (strchr(readb, '#') != NULL)
-		        strcpy(writeb, getpass(readb));
-		    else
-		    {
-		        printf("%s\n", readb);
-		        scanf("%[^\n]%*c", writeb); // Take user input!
-		    }
-
-		    write_Bytes = write(cli_sock, writeb, strlen(writeb));
-		    
-		    if (write_Bytes == -1)
-		    {
-		        perror("Error while writing to client socket!");
-		        printf("Closing the connection to the server now!\n");
-		        break;
-		    }
+			bzero(writeBuffer, sizeof(writeBuffer));	// Empty the write buffer
+			
+			if(strchr(readBuffer,'#') != NULL)
+				strcpy(writeBuffer, getpass(readBuffer));
+			else
+			{
+				printf("\n%s",readBuffer);
+				scanf("%[^\n]%*c", writeBuffer); 	// Take input
+			}
+			
+			writeBytes = write(sockfd, writeBuffer, strlen(writeBuffer));
+			if(writeBytes == -1)
+			{
+				perror("Error while writing to client socket");
+				printf("\nclosing the connection to the server\n");
+				break;	
+			}
 		}
-	}while(read_Bytes > 0);
-	       
-	close(cli_sock);
+	}while (readBytes > 0);
+	
+	close(sockfd);
 }
-
-int main(void) {
-	char msg[100];
-	int cli_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if(cli_sock == -1) {
-		perror("Error occured while calling socket");
-		return 0;
-	}
-	
-	struct sockaddr_in ser;
-	ser.sin_family = AF_INET;
-	ser.sin_port = htons(8339);
-	ser.sin_addr.s_addr = INADDR_ANY;
-	printf("Client Side: Socket created successfully\n");
-	
-	int t = 1;
-	int re_use = setsockopt(cli_sock, SOL_SOCKET, SO_REUSEADDR, &(t), sizeof(t));
-	
-	if(re_use == -1) {
-		perror("Error while using same port number\n");
-		return 0;
-	}
-	
-	int cnt = connect(cli_sock, (struct sockaddr *)&ser, sizeof(ser));
-	
-	if(cnt == -1) {
-		perror("Error while generating connection");
-		return 0;
-	}
-	
-	connection(cli_sock);
-	close(cli_sock);
-}
+		
+		
+		
+		
+		
+		
