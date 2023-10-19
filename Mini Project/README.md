@@ -13,6 +13,7 @@ project: Process Management, File Management, File Locking
 
 
 Roles to implement: Faculty, Student, Admin.
+
 ● The application should possess password-protected administrative access, thus
 preventing the whole management system from unauthorized access.
 
