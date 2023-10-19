@@ -1,107 +1,125 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<unistd.h>
-#include<stdbool.h>
-#include<sys/socket.h>
-#include<netinet/in.h>
+#include <stdio.h>	// Import for `printf` & `perror` functions
+#include <stdlib.h>	// Import for `atoi` function
+#include <string.h>	// Import for string functions
+#include <unistd.h>	// Import for `fork`, `fcntl`, `read`, `write`, `lseek, `_exit` functions
+#include <fcntl.h>	// Import for `fcntl` functions
+#include <sys/types.h>	// Import for `socket`, `bind`, `listen`, `accept`, `fork`, `lseek` functions
+#include <errno.h>	// Import for `errno` variable
+#include <sys/socket.h>	// Import for `socket`, `bind`, `listen`, `accept` functions
+#include <netinet/in.h>	// Import for `sockaddr_in` stucture
 
-#include "./Mini_Project/head.h"
-#include "./Mini_Project/details.h"
+#include "./functions/constant.h"
+#include "./functions/admin.h"
+#include "./functions/faculty.h"
+#include "./functions/student.h"
 
-void connection_handler(int cli_soc) {
-	char readb[1000], writeb[1000];
-	int choice;
-	
-	int write_b = write(cli_soc, HEADING, sizeof(HEADING));
-	if(write_b == -1) {
-		perror("Error while performing write function\n");
-		return;
-	}
-	
-	int read_b = read(cli_soc, readb, sizeof(readb));
-	if(read_b == -1) {
-		perror("Error while performing read function\n");
-		return;
-	}
-	
-	choice = atoi(readb);
-	switch(choice) {
-		case 1:
-			//Admin
-			admin_details(cli_soc);
-			break;
-		
-		case 2:
-			//Professor
-			prof_details(cli_soc);
-			break;
-		
-		case 3:
-			//Student
-			//stud_details(cli_soc);
-			break;	 
-		default:
-			printf("Your Have Entered the wrong choice\n");
-	}
-		
+void error(const char *msg)
+{
+	perror(msg);
+	exit(1);
 }
 
-int main(void){
-	int ser_soc = socket(AF_INET, SOCK_STREAM, 0); 
-	if(ser_soc == -1) {
-		perror("Error while running socket");
-		return 0;
+void connectionHandler(int confd);	// Handles the communication with the client
+
+int main()
+{	
+	int sockfd, newsockfd, portno, n;
+	int choice;
+	int menu_no = 0;
+	char buffer[1024];
+	
+	struct sockaddr_in serv_addr, cli_addr; // gives internet address
+	socklen_t clilen; // data type to store : 32 bit 
+	
+	sockfd = socket(AF_INET , SOCK_STREAM , 0);
+	if(sockfd < 0)
+	{
+		error("Error Opening Socket.");
 	}
+	printf("\nSocket created successfully!!");
 	
-	struct sockaddr_in ser;
-	ser.sin_family = AF_INET;
-	ser.sin_port = htons(8339);
-	ser.sin_addr.s_addr = INADDR_ANY;
+	bzero((char*) &serv_addr, sizeof(serv_addr));
+	portno = 8086;
 	
-	printf("Server Side: Socket Created Successfully\n");
+	serv_addr.sin_family = AF_INET;		// IPv4
+	serv_addr.sin_addr.s_addr = INADDR_ANY;	
+	serv_addr.sin_port = htons(portno);	// Server will listen to port 8080
 	
-	int t = 1;
-	int re_use = setsockopt(ser_soc, SOL_SOCKET, SO_REUSEADDR, &(t), sizeof(t));
-	
-	if(re_use == -1) {
-		perror("Error while using same port number\n");
-		return 0;
+	if(bind(sockfd,(struct sockaddr *)&serv_addr , sizeof(serv_addr)) < 0)
+	{
+		error("Binding Failed");
 	}
+	printf("\nSocket Bind successfully at port number %d.",portno);
+	listen(sockfd , 5);			// Listen to max 5 users at a time
+	clilen = (int)sizeof(cli_addr);
 	
-	int bn = bind(ser_soc, (struct sockaddr *)&ser, sizeof(ser));
-	if(bn == -1) {
-		perror("Error while calling bind\n");
-		return 0;
-	}
-	printf("Binding to socket is successful\n");
 	
-	int ls = listen(ser_soc, 10);
-	if(ls == -1) {
-		perror("Error while calling listen");
-		close(ser_soc);
-		return 0;
-	}
-	
-	int port = ntohs(ser.sin_port);
-        printf("Server is running on port %d\n", port);
-	
-	int cli_soc;
-	while(1) {
-		cli_soc = accept(ser_soc, NULL, NULL);
-		if(cli_soc == -1) {
-			perror("Error while calling accept\n");
-			close(ser_soc);
-		}
-		
-		else {
-			if(!fork()) {
-				connection_handler(cli_soc);
-				close(cli_soc);
-				return 0;
+
+	while(1)
+	{
+		newsockfd = accept(sockfd , (struct sockaddr *)&cli_addr , &clilen);	// For multiple cilent handling
+		if(newsockfd < 0)
+			error("Error while listening for connection on the server!!");
+		else
+		{
+			if(!fork())
+			{
+				// Child
+				connectionHandler(newsockfd);
+				close(newsockfd);
+				exit(0);
 			}
 		}
 	}
-	
-	close(ser_soc);
+	if(close(sockfd) == -1) 
+	{
+        	perror("Error closing socket");
+        	return 1;
+    	}
+	printf("\nSocket closed !!\n");
+	return 0;
 }
+
+void connectionHandler(int sockfd)
+{
+	printf("\nClent has connected to the server!!");
+	
+	char readBuffer[1024], writeBuffer[1024];
+	int readBytes, writeBytes, choice;
+	
+	writeBytes = write(sockfd, LOGIN_MENU, strlen(LOGIN_MENU));
+	if(writeBytes == -1)
+			error("Error while sending  Menu to user !!");
+	else
+	{
+		bzero(readBuffer, sizeof(readBuffer));
+		readBytes = read(sockfd, readBuffer, sizeof(readBuffer));
+		if(readBytes == -1)
+			error("Error while reading from client");
+		else if(readBytes == 0)
+			printf("No data was sent by the client");
+		else
+		{
+			choice = atoi(readBuffer);
+			switch(choice)
+			{
+				case 1:
+					// User is Admin
+					adminHandler(sockfd);
+					break;
+				case 2:
+					// User is Faculty
+					facultyHandler(sockfd);
+					break;
+				case 3:
+					// User is Student
+					studentHandler(sockfd);
+					break;
+				default:
+					break;
+			}
+		}
+	}
+	printf("\nTerminating connection to client!!");
+}
+
